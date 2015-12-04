@@ -110,6 +110,29 @@ Point centroid(vector<Point> contour)
     return mc;
 }
 
+double getOrientation(vector<Point> contour)
+{
+	Moments mo = moments(contour,false);
+	double tan_v = (2 * mo.mu11) / (mo.mu20 - mo.mu02);
+	cout<< "The angle is "<<tan_v<<endl;
+	double dtheta = atan(tan_v);
+	if((mo.mu20 - mo.mu02 ) < 0)
+	{
+	  dtheta = dtheta/2 + M_PI/4;
+	}
+	double rate = tan(dtheta);
+
+	cout << "The rate is "<<rate<<endl;
+	return rate;
+}
+
+void drawLine(Mat img,double rate, Point cen)
+{
+	Point end = Point(cen.x+5,cen.y + 5*rate );
+	line(img,cen,end,Scalar(255,255,255),3);
+}
+
+
 int main(int argc, char** argv)
 {
     Mat image = imread(argv[1], CV_LOAD_IMAGE_COLOR);
@@ -140,6 +163,8 @@ int main(int argc, char** argv)
             output.at<Vec3b>(y, x)[2] = brg[2];
         }
         circle(output, center, 4, color, -1, 8, 0);
+        double rate = getOrientation(contour);
+		drawLine(output,rate,center);
 
         cout << obj.size() << endl;
     }
