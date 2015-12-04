@@ -13,17 +13,17 @@ using namespace std;
 
 /** Return binarized image of black and white colors.
  */
-Mat binarize(Mat image_src)
+Mat binarize(Mat image)
 {
     Mat image_gray, image_binary;
-    cvtColor(image_src, image_gray, CV_BGR2GRAY);
+    cvtColor(image, image_gray, CV_BGR2GRAY);
     threshold(image_gray, image_binary, 200, 255, 0);
     return image_binary;
 }
 
-/** Return list of objects made of set of points.
+/** Return list of contours made of set of points;
  */
-vector<vector<Point> > segment_objects(Mat image_src)
+vector<vector<Point> > get_contours(Mat image)
 {
     Mat image_dst;
     vector<vector<Point> > contours;
@@ -39,30 +39,33 @@ vector<vector<Point> > segment_objects(Mat image_src)
 
     //Canny(image_src, image_dst, 100, 200, 3);
     Mat element = getStructuringElement(MORPH_RECT, Size(50, 50));
-    morphologyEx(image_src, image_dst, MORPH_OPEN, element);
+    morphologyEx(image, image_dst, MORPH_OPEN, element);
     findContours(image_dst, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, Point(0,0));
+    return contours;
+}
 
-    vector<vector<Point> > shapes;
-    for(int k=0;k<contours.size();k++)
+/** Return filled object given contour.
+ */
+vector<Point> fill_object(Mat image, vector<Point> contour)
+{
+    Mat tmp = Mat::zeros(image.size(), CV_8UC3);
+    vector<vector<Point> > contours;
+    contours.push_back(contour);
+    const int mask = 1;
+    drawContours(tmp, contours, 0, Scalar(mask, mask, mask), CV_FILLED);
+    vector<Point> shape;
+    for(int x=0;x<tmp.cols;x++)
     {
-        Mat tmp = Mat::zeros(image_src.size(), CV_8UC3);
-        Scalar color = Scalar(255, 255, 255);
-        drawContours(tmp, contours, k, color, CV_FILLED);
-        vector<Point> shape;
-        for(int x=0;x<tmp.cols;x++)
+        for(int y=0;y<tmp.rows;y++)
         {
-            for(int y=0;y<tmp.rows;y++)
+            Vec3b c = tmp.at<Vec3b>(y, x);
+            if(c[0] == mask)
             {
-                Vec3b c = tmp.at<Vec3b>(y, x);
-                if(c[0] == 255)
-                {
-                    shape.push_back(Point(x, y));
-                }
+                shape.push_back(Point(x, y));
             }
         }
-        shapes.push_back(shape);
     }
-    return shapes;
+    return shape;
 }
 
 /** Return color of the object on the image.
@@ -100,6 +103,13 @@ Vec3b get_brg(int color)
     return brg;
 }
 
+Point centroid(vector<Point> contour)
+{
+    Moments mu = moments(contour, false);
+    Point mc = Point(mu.m10/mu.m00, mu.m01/mu.m00);
+    return mc;
+}
+
 int main(int argc, char** argv)
 {
     Mat image = imread(argv[1], CV_LOAD_IMAGE_COLOR);
@@ -110,28 +120,17 @@ int main(int argc, char** argv)
     }
 
     Mat image_binary = binarize(image);
-    vector<vector<Point> > objects = segment_objects(image_binary);
     Mat output = Mat::zeros(image_binary.size(), CV_8UC3);
-    for(int i=0;i<objects.size();i++)
+    vector<vector<Point> > contours = get_contours(image_binary);
+    vector<vector<Point> > objects;
+    for(int i=0;i<contours.size();i++)
     {
-        vector<Point> obj = objects[i];
+        vector<Point> contour = contours[i];
+        vector<Point> obj = fill_object(image, contour);
+        objects.push_back(obj);
         int color = get_color(image, obj);
         Vec3b brg = get_brg(color);
-        /*
-        unsigned char r = 255 * (rand()/(1.0 + RAND_MAX));
-        unsigned char g = 255 * (rand()/(1.0 + RAND_MAX));
-        unsigned char b = 255 * (rand()/(1.0 + RAND_MAX));
-        for(int j=0;j<contour.size();j++)
-        {
-            int x = contour[j].x;
-            int y = contour[j].y;
-            output.at<Vec3b>(y,x)[0] = b;
-            output.at<Vec3b>(y,x)[1] = g;
-            output.at<Vec3b>(y,x)[2] = r;
-        }
-        */
-        //drawContours(output, contours, i, color, CV_FILLED);
-        cout << obj.size() << endl;
+        Point center = centroid(contour);
         for(int j=0;j<obj.size();j++)
         {
             int x = obj[j].x;
@@ -140,6 +139,9 @@ int main(int argc, char** argv)
             output.at<Vec3b>(y, x)[1] = brg[1];
             output.at<Vec3b>(y, x)[2] = brg[2];
         }
+        circle(output, center, 4, color, -1, 8, 0);
+
+        cout << obj.size() << endl;
     }
 
     namedWindow("Display1", CV_WINDOW_NORMAL);
