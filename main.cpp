@@ -112,24 +112,23 @@ Point centroid(vector<Point> contour)
 
 double getOrientation(vector<Point> contour)
 {
-	Moments mo = moments(contour,false);
-	double tan_v = (2 * mo.mu11) / (mo.mu20 - mo.mu02);
-	cout<< "The angle is "<<tan_v<<endl;
-	double dtheta = atan(tan_v);
-	if((mo.mu20 - mo.mu02 ) < 0)
-	{
-	  dtheta = dtheta/2 + M_PI/4;
-	}
-	double rate = tan(dtheta);
-
-	cout << "The rate is "<<rate<<endl;
-	return rate;
+    Moments mo = moments(contour,false);
+    double tan_v = (2 * mo.mu11) / (mo.mu20 - mo.mu02);
+    double dtheta = atan(tan_v) / 2;
+    if((mo.mu20 - mo.mu02 ) < 0)
+    {
+        dtheta += M_PI/4;
+    }
+    return dtheta;
+    //double rate = tan(dtheta);
+    //cout << "The rate is "<<rate<<endl;
+    //return rate;
 }
 
-void drawLine(Mat img,double rate, Point cen)
+void drawLine(Mat img, double theta, Point cen)
 {
-	Point end = Point(cen.x+5,cen.y + 5*rate );
-	line(img,cen,end,Scalar(255,255,255),3);
+    Point end = Point(cen.x + 50 * cos(theta), cen.y + 50 * sin(theta));
+    line(img,cen,end,Scalar(0, 0, 0), 3);
 }
 
 
@@ -145,15 +144,18 @@ int main(int argc, char** argv)
     Mat image_binary = binarize(image);
     Mat output = Mat::zeros(image_binary.size(), CV_8UC3);
     vector<vector<Point> > contours = get_contours(image_binary);
-    vector<vector<Point> > objects;
+    //vector<vector<Point> > objects;
     for(int i=0;i<contours.size();i++)
     {
         vector<Point> contour = contours[i];
         vector<Point> obj = fill_object(image, contour);
-        objects.push_back(obj);
-        int color = get_color(image, obj);
+        //objects.push_back(obj);
+        int color = get_color(image, contour);
+        cout << "color=" << color << endl;
         Vec3b brg = get_brg(color);
         Point center = centroid(contour);
+        drawContours(output, contours, i, Scalar(brg[0], brg[1], brg[2]), CV_FILLED);
+        /*
         for(int j=0;j<obj.size();j++)
         {
             int x = obj[j].x;
@@ -162,9 +164,12 @@ int main(int argc, char** argv)
             output.at<Vec3b>(y, x)[1] = brg[1];
             output.at<Vec3b>(y, x)[2] = brg[2];
         }
+        */
         circle(output, center, 4, color, -1, 8, 0);
-        double rate = getOrientation(contour);
-		drawLine(output,rate,center);
+
+        double theta = getOrientation(contour); 
+        cout << "theta=" << theta << endl;
+        drawLine(output,theta,center);
 
         cout << obj.size() << endl;
     }
