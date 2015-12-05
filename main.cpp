@@ -2,6 +2,8 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <iostream>
+#include <cstring>
+#include <stdio.h>
 
 using namespace cv;
 using namespace std;
@@ -17,7 +19,7 @@ Mat binarize(Mat image)
 {
     Mat image_gray, image_binary;
     cvtColor(image, image_gray, CV_BGR2GRAY);
-    threshold(image_gray, image_binary, 200, 255, 0);
+    threshold(image_gray, image_binary, 180, 255, 0);
     return image_binary;
 }
 
@@ -37,8 +39,7 @@ vector<vector<Point> > get_contours(Mat image)
     //dist.convertTo(dist_8u, CV_8U);
     //findContours(dist_8u, contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE);
 
-    //Canny(image_src, image_dst, 100, 200, 3);
-    Mat element = getStructuringElement(MORPH_RECT, Size(50, 50));
+    Mat element = getStructuringElement(MORPH_RECT, Size(30, 30));
     morphologyEx(image, image_dst, MORPH_OPEN, element);
     findContours(image_dst, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, Point(0,0));
     return contours;
@@ -72,17 +73,30 @@ vector<Point> fill_object(Mat image, vector<Point> contour)
  */
 int get_color(Mat image, vector<Point> obj)
 {
-    Vec3b brg = image.at<Vec3b>(obj[0].y, obj[0].x);
+    Vec3b bgr = image.at<Vec3b>(obj[0].y, obj[0].x);
+    long b = (long)bgr[0], g = (long)bgr[1], r = (long)bgr[2];
+    const int K = 250;
+    int count = 1;
     for(int i=1;i<obj.size();i++)
     {
         Vec3b tmp = image.at<Vec3b>(obj[i].y, obj[i].x);
-        brg[0] = (brg[0] * i + tmp[0]) / (i + 1);
-        brg[1] = (brg[1] * i + tmp[1]) / (i + 1);
-        brg[2] = (brg[2] * i + tmp[2]) / (i + 1);
+        if(tmp[0] > K && tmp[1] > K && tmp[2] > K)
+        {
+            continue;
+        }
+        b += (long)tmp[0];
+        g += (long)tmp[1];
+        r += (long)tmp[2];
+        count++;
     }
-    if(brg[0] > 195) return BLUE;
-    if(brg[1] > 195) return RED;
-    if(brg[2] > 195) return GREEN;
+    b /= count;
+    g /= count;
+    r /= count;
+    //cout << b << " " << g << " "<< r << " ";
+    const int M = 5;
+    if(b>r+M && b>g+M && b > 200) return BLUE;
+    if(g>b+M && g>r+M && g > 200) return GREEN;
+    if(r>b+M && r>g+M && r > 198) return RED;
     return YELLOW;
 }
 
@@ -93,12 +107,12 @@ Vec3b get_brg(int color)
     {
         case BLUE: 
             brg[0] = 255; break;
-        case RED: 
-            brg[1] = 255; break;
         case GREEN: 
+            brg[1] = 255; break;
+        case RED: 
             brg[2] = 255; break;
         case YELLOW: 
-            brg[1] = 255; brg[2] = 255; break;
+            brg[1] = 205; brg[2] = 255; break;
     }
     return brg;
 }
@@ -117,7 +131,7 @@ double getOrientation(vector<Point> contour)
     double dtheta = atan(tan_v) / 2;
     if((mo.mu20 - mo.mu02 ) < 0)
     {
-        dtheta += M_PI/4;
+        dtheta += M_PI / 2;
     }
     return dtheta;
     //double rate = tan(dtheta);
@@ -125,10 +139,22 @@ double getOrientation(vector<Point> contour)
     //return rate;
 }
 
+void drawDot(Mat image, Point pt)
+{
+    circle(image, pt, 4, Scalar(255,255,255), -1, 8, 0);
+}
+
 void drawLine(Mat img, double theta, Point cen)
 {
     Point end = Point(cen.x + 50 * cos(theta), cen.y + 50 * sin(theta));
-    line(img,cen,end,Scalar(0, 0, 0), 3);
+    //line(img,cen,end,Scalar(0, 0, 0), 3);
+    line(img,cen,end,Scalar(255, 255, 255), 3);
+}
+
+void drawText(Mat img, string text, Point pt) 
+{
+    Scalar color(255, 255, 255);
+    putText(img, text, pt, FONT_HERSHEY_SIMPLEX, 1, color, 2);
 }
 
 
@@ -144,16 +170,17 @@ int main(int argc, char** argv)
     Mat image_binary = binarize(image);
     Mat output = Mat::zeros(image_binary.size(), CV_8UC3);
     vector<vector<Point> > contours = get_contours(image_binary);
-    //vector<vector<Point> > objects;
+    vector<vector<Point> > objects;
+    cout << argv[1] << endl;
     for(int i=0;i<contours.size();i++)
     {
         vector<Point> contour = contours[i];
         vector<Point> obj = fill_object(image, contour);
-        //objects.push_back(obj);
+        objects.push_back(obj);
+        //cout << obj.size() << endl;
         int color = get_color(image, contour);
-        cout << "color=" << color << endl;
+        //cout << "color=" << color << "; ";
         Vec3b brg = get_brg(color);
-        Point center = centroid(contour);
         drawContours(output, contours, i, Scalar(brg[0], brg[1], brg[2]), CV_FILLED);
         /*
         for(int j=0;j<obj.size();j++)
@@ -165,19 +192,34 @@ int main(int argc, char** argv)
             output.at<Vec3b>(y, x)[2] = brg[2];
         }
         */
-        circle(output, center, 4, color, -1, 8, 0);
+
+        Point center = centroid(contour);
+        drawDot(output, center);
 
         double theta = getOrientation(contour); 
-        cout << "theta=" << theta << endl;
-        drawLine(output,theta,center);
+        cout << center << " " << theta << endl;
+        drawLine(output, theta, center);
 
-        cout << obj.size() << endl;
+        char text[1000];
+        sprintf(text, "(%d,%d,%lf)", center.x, center.y, theta);
+        drawText(output, text, center);
+
+        /*
+        namedWindow("Display1", CV_WINDOW_NORMAL);
+        imshow("Display1", output);
+        waitKey(0);
+        */
     }
+    char text[100];
+    sprintf(text, "Number of objects: %d", contours.size());
+    drawText(output, text, Point(20,30));
 
+    /*
     namedWindow("Display1", CV_WINDOW_NORMAL);
     imshow("Display1", image);
     namedWindow("Display2", CV_WINDOW_NORMAL);
     imshow("Display2", output);
-    waitKey(0);
+    */
+    imwrite(argv[2], output);
     return 0;
 }
