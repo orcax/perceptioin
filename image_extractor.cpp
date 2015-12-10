@@ -26,13 +26,16 @@ vector<ImageData> ImageExtractor::extract()
     vector<Points> contours = this->getContours();
     for(int i=0;i<contours.size();i++)
     {
+        ImageData id;
+        id.centroid = this->getCentroid(contours[i]);
+        id.orient = this->getOrientation(contours[i]);
+        id.color = this->getColor(contours[i]);
 
-        Points obj = this->fillObject(contours[i]);
-        cout << obj.size() << endl;
-        this->plotPoints(obj);
-        this->showImage(this->output, "ccc");
+        imageData.push_back(id);
+        //cout << obj.size() << endl;
+        //this->plotPoints(obj);
+        //this->showImage(this->output, "ccc");
     }
-
     return imageData;
 }
 
