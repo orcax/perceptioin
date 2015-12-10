@@ -16,6 +16,7 @@ using namespace std;
 #define G 'g'
 #define B 'b'
 #define Y 'y'
+#define W 'w'
 
 typedef struct image_data_ 
 {
@@ -30,23 +31,31 @@ typedef vector<Point> Points;
 class ImageExtractor
 {
     public:
-        ImageExtractor(Mat image);
-        vector<ImageData> extract();
-        void showImage(Mat image);
-    
-    private:
         Mat image, grayImage, binImage, output;
 
-        void binarize(int threshold=180);
+        ImageExtractor(Mat image);
+        vector<ImageData> extract();
+        void setOutputColor(uchar b, uchar g, uchar r);
+        void setOutputColor(char color);
+        void plotDot(Point pt);
+        void plotDot(Point pt, Mat image);
+        void plotPoints(Points pts);
+        void plotPoints(Points pts, Mat image);
+        void plotLine(double theta, Point start);
+        void plotLine(double theta, Point start, Mat image);
+        void plotText(string text, Point pt);
+        void plotText(string text, Point pt, Mat image);
+        void showImage(Mat image, string title="Display");
+    
+    private:
+        Scalar bgr;
+
         vector<Points> getContours();
-        vector<Points> fillObject(Mat image, vector<Point> contour);
-        int getColor(Points obj);
+        Points fillObject(Points contour);
+        char getColor(Points obj);
         Vec3b getBGR(int color);
         Point getCentroid(Points contour);
         double getOrientation(Points contour);
-        void drawDot(Mat image, Point pt);
-        void drawLine(Mat image, double theta, Point cen);
-        void drawText(Mat image, string text, Point pt);
 };
 
 #endif

@@ -9,47 +9,160 @@
 using namespace cv;
 using namespace std;
 
+/**********************************************/
+/*************** Public Methods ***************/
+/**********************************************/
+
 ImageExtractor::ImageExtractor(Mat image)
 {
-    this.image = image;
-    this.binarize();
+    this->image = image;
+    this->output = Mat::zeros(image.size(), CV_8UC3); 
+    this->bgr = Scalar(255, 255, 255);
 }
 
-vector<ImageData> extract()
+vector<ImageData> ImageExtractor::extract()
 {
-    //TODO
-    return NULL;
+    vector<ImageData> imageData;
+    vector<Points> contours = this->getContours();
+    for(int i=0;i<contours.size();i++)
+    {
+
+        Points obj = this->fillObject(contours[i]);
+        cout << obj.size() << endl;
+        this->plotPoints(obj);
+        this->showImage(this->output, "ccc");
+    }
+
+    return imageData;
 }
 
-void ImageExtractor::binarize(int threshold)
+void ImageExtractor::setOutputColor(uchar b, uchar g, uchar r)
 {
-    cvtColor(this.image, this.grayImage, CV_BGR2GRAY);
-    threshold(this.grayImage, this.binImage, threshold, 255, 0);
+    this->bgr = Scalar(b, g, r);
 }
+
+void ImageExtractor::setOutputColor(char color)
+{
+    switch(color)
+    {
+        case R:
+            this->setOutputColor(0, 0, 250);
+            break;
+        case G:
+            this->setOutputColor(0, 250, 0);
+            break;
+        case B:
+            this->setOutputColor(250, 0, 0);
+            break;
+        case Y:
+            this->setOutputColor(0, 250, 250); 
+            break;
+        default:
+            this->setOutputColor(255, 255, 255);
+    }
+}
+
+void ImageExtractor::plotDot(Point pt)
+{
+    this->plotDot(pt, this->output);
+}
+
+void ImageExtractor::plotDot(Point pt, Mat image)
+{
+    circle(image, pt, 4, this->bgr);
+}
+
+void ImageExtractor::plotPoints(Points pts)
+{
+    this->plotPoints(pts, this->output);
+}
+
+void ImageExtractor::plotPoints(Points pts, Mat image)
+{
+    for(int i=0;i<pts.size();i++)
+    {
+        circle(image, pts[i], 1, this->bgr);
+    }
+}
+
+void ImageExtractor::plotLine(double theta, Point start)
+{
+    this->plotLine(theta, start, this->output);
+}
+
+void ImageExtractor::plotLine(double theta, Point start, Mat image)
+{
+    Point end = Point(start.x + 50 * cos(theta), start.y + 50 * sin(theta));
+    line(this->output, start, end, this->bgr, 3);
+}
+
+void ImageExtractor::plotText(string text, Point pt) 
+{
+    this->plotText(text, pt, this->output);
+}
+
+void ImageExtractor::plotText(string text, Point pt, Mat image) 
+{
+    putText(image, text, pt, FONT_HERSHEY_SIMPLEX, 1, this->bgr, 2);
+}
+
+void ImageExtractor::showImage(Mat image, string title)
+{
+    namedWindow(title, CV_WINDOW_NORMAL);
+    imshow(title, image);
+    waitKey(0);
+}
+
+
+/**********************************************/
+/************** Private Methods ***************/
+/**********************************************/
 
 vector<Points> ImageExtractor::getContours()
 {
+    cvtColor(this->image, this->grayImage, CV_BGR2GRAY);
+    //GaussianBlur(this->grayImage, this->grayImage, Size(9, 9), 2, 2);
+    //Canny(this->grayImage, this->binImage, 0, 50, 5);
+    threshold(this->grayImage, this->binImage, 160, 255, 0);
     Mat dstImage;
-    vector<Contour> contours;
+    //vector<Vec3f> circles;
+    //HoughCircles(this->grayImage, circles, CV_HOUGH_GRADIENT, 1, 10, 200, 100, 0, 0);
+    //cout << circles.size() << endl;
+    //for(int i=0;i<circles.size();i++)
+    //{
+    //    Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
+    //    int radius = cvRound(circles[i][2]);
+    //    circle(output, center, radius, Scalar(255,255,255), 3, 8, 0);
+    //}
+
+    vector<Points> contours, result;
     vector<Vec4i> hierarchy;
-
-    //Mat dist;
-    //distanceTransform(image_src, dist, CV_DIST_L2, 3);
-    //normalize(dist, dist, 0, 1.0, NORM_MINMAX);
-    //threshold(dist, dist, 0.65, 1.0, CV_THRESH_BINARY);
-    //Mat dist_8u;
-    //dist.convertTo(dist_8u, CV_8U);
-    //findContours(dist_8u, contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE);
-
-    Mat element = getStructuringElement(MORPH_RECT, Size(10, 10));
-    morphologyEx(this.binImage, dstImage, MORPH_OPEN, element);
+    Mat element = getStructuringElement(MORPH_ELLIPSE, Size(15, 15));
+    morphologyEx(this->binImage, dstImage, MORPH_GRADIENT, element);
     findContours(dstImage, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, Point(0,0));
-    return contours;
+    //findContours(this->binImage, contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE);
+    Points approx;
+    this->setOutputColor(R);
+    for(int i=0;i<contours.size();i++)
+    {
+        Points obj = fillObject(contours[i]);
+        if(obj.size() < 1000 || obj.size() > 20000) continue;
+        //approxPolyDP(Mat(contours[i]), approx, arcLength(Mat(contours[i]), true) * 0.02, true);
+        //for(int j=0;j<approx.size();j++)
+        //{
+        //    this->plotDot(approx[j]);
+        //    cout << approx[j];
+        //}
+        //cout << endl << "-----contour " << approx.size() << endl;
+        result.push_back(contours[i]);
+    }
+    this->setOutputColor(W);
+    return result;
 }
 
 Points ImageExtractor::fillObject(Points contour)
 {
-    Mat tmp = Mat::zeros(this.image.size(), CV_8UC3);
+    Mat tmp = Mat::zeros(this->image.size(), CV_8UC3);
     vector<Points> contours;
     contours.push_back(contour);
     const int mask = 1;
@@ -69,9 +182,9 @@ Points ImageExtractor::fillObject(Points contour)
     return obj;
 }
 
-int ImageExtractor::getColor(Points obj)
+char ImageExtractor::getColor(Points obj)
 {
-    Vec3b bgr = this.image.at<Vec3b>(obj[0].y, obj[0].x);
+    Vec3b bgr = this->image.at<Vec3b>(obj[0].y, obj[0].x);
     long b = (long)bgr[0], g = (long)bgr[1], r = (long)bgr[2];
     const int K = 250;
     int count = 1;
@@ -92,10 +205,10 @@ int ImageExtractor::getColor(Points obj)
     r /= count;
     //cout << b << " " << g << " "<< r << " ";
     const int M = 5;
-    if(b>r+M && b>g+M && b > 200) return BLUE;
-    if(g>b+M && g>r+M && g > 200) return GREEN;
-    if(r>b+M && r>g+M && r > 198) return RED;
-    return YELLOW;
+    if(b>r+M && b>g+M && b > 200) return B;
+    if(g>b+M && g>r+M && g > 200) return G;
+    if(r>b+M && r>g+M && r > 198) return R;
+    return Y;
 }
 
 Vec3b ImageExtractor::getBGR(int color)
@@ -103,13 +216,13 @@ Vec3b ImageExtractor::getBGR(int color)
     Vec3b brg(0, 0, 0);
     switch(color)
     {
-        case BLUE: 
-            brg[0] = 255; break;
-        case GREEN: 
-            brg[1] = 255; break;
-        case RED: 
+        case R: 
             brg[2] = 255; break;
-        case YELLOW: 
+        case G: 
+            brg[1] = 255; break;
+        case B: 
+            brg[0] = 255; break;
+        case Y: 
             brg[1] = 205; brg[2] = 255; break;
     }
     return brg;
@@ -135,30 +248,5 @@ double ImageExtractor::getOrientation(Points contour)
     //double rate = tan(dtheta);
     //cout << "The rate is "<<rate<<endl;
     //return rate;
-}
-
-void ImageExtractor::drawDot(Point pt)
-{
-    circle(this.output, pt, 4, Scalar(255,255,255), -1, 8, 0);
-}
-
-void ImageExtractor::drawLine(double theta, Point cen)
-{
-    Point end = Point(cen.x + 50 * cos(theta), cen.y + 50 * sin(theta));
-    //line(img,cen,end,Scalar(0, 0, 0), 3);
-    line(this.output,cen,end,Scalar(255, 255, 255), 3);
-}
-
-void ImageExtractor::drawText(string text, Point pt) 
-{
-    Scalar color(255, 255, 255);
-    putText(this.output, text, pt, FONT_HERSHEY_SIMPLEX, 1, color, 2);
-}
-
-void ImageExtractor::showImage(Mat image)
-{
-    namedWindow("Display", CV_WINDOW_NORMAL);
-    imshow("Display", image);
-    waitKey(0);
 }
 

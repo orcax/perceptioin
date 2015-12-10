@@ -4,6 +4,7 @@
 #include <iostream>
 #include <cstring>
 #include <stdio.h>
+#include "image_extractor.hpp"
 
 using namespace cv;
 using namespace std;
@@ -18,7 +19,12 @@ int main(int argc, char** argv)
         return -1;
     }
 
-    ImageExtractor ie;
+    ImageExtractor ie(image);
+    vector<ImageData> imagedata = ie.extract();
+
+    ie.showImage(ie.image, "aaa");
+    ie.showImage(ie.output, "ccc");
+    /*
     Mat image_binary = ie.binarize(image);
     Mat output = Mat::zeros(image_binary.size(), CV_8UC3);
     vector<vector<Point> > contours = get_contours(image_binary);
@@ -34,7 +40,6 @@ int main(int argc, char** argv)
         //cout << "color=" << color << "; ";
         Vec3b brg = get_brg(color);
         drawContours(output, contours, i, Scalar(brg[0], brg[1], brg[2]), CV_FILLED);
-        /*
         for(int j=0;j<obj.size();j++)
         {
             int x = obj[j].x;
@@ -43,7 +48,6 @@ int main(int argc, char** argv)
             output.at<Vec3b>(y, x)[1] = brg[1];
             output.at<Vec3b>(y, x)[2] = brg[2];
         }
-        */
 
         Point center = centroid(contour);
         drawDot(output, center);
@@ -55,23 +59,13 @@ int main(int argc, char** argv)
         char text[1000];
         sprintf(text, "(%d,%d,%lf)", center.x, center.y, theta);
         drawText(output, text, center);
-
-        /*
-        namedWindow("Display1", CV_WINDOW_NORMAL);
-        imshow("Display1", output);
-        waitKey(0);
-        */
     }
     char text[100];
     sprintf(text, "Number of objects: %ld", contours.size());
     drawText(output, text, Point(0,200));
+    */
 
-    //namedWindow("Display1", CV_WINDOW_NORMAL);
-    //imshow("Display1", image);
-    namedWindow("Display2", CV_WINDOW_NORMAL);
-    imshow("Display2", output);
-    waitKey(0);
-    imwrite(argv[2], output);
+    //imwrite(argv[2], output);
 
     return 0;
 }
