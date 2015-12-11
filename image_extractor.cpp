@@ -32,11 +32,18 @@ vector<ImageObject> ImageExtractor::extract()
         io.centroid = this->getCentroid(contours[i]);
         io.orient = this->getOrientation(contours[i]);
         io.color = this->getColor(contours[i]);
-
+        io.stand = this->isStand(contours[i], io.centroid);
+        if(io.stand) io.orient = 0.0;
         imageObjects.push_back(io);
-        this->setOutputColor(io.color);
+
         Points obj = this->fillObject(contours[i]);
+        this->setOutputColor(io.color);
         this->plotPoints(obj);
+        if(!io.stand)
+        {
+            this->setOutputColor('x');
+            this->plotLine(io.orient, io.centroid);
+        }
         //this->showImage(this->output, "ccc");
     }
     return imageObjects;
@@ -63,8 +70,11 @@ void ImageExtractor::setOutputColor(char color)
         case Y:
             this->setOutputColor(0, 250, 250); 
             break;
+        case W:
+            this->setOutputColor(255, 255, 255); 
+            break;
         default:
-            this->setOutputColor(255, 255, 255);
+            this->setOutputColor(0, 0, 0);
     }
 }
 
@@ -81,7 +91,6 @@ void ImageExtractor::plotDot(Point pt, Mat image)
 void ImageExtractor::plotPoints(Points pts)
 {
     this->plotPoints(pts, this->output);
-    cout << pts.size() << endl;
 }
 
 void ImageExtractor::plotPoints(Points pts, Mat image)
@@ -127,7 +136,7 @@ void ImageExtractor::showImage(Mat image, string title)
 
 void ImageExtractor::binarize()
 {
-    const int thresh = 210;
+    const int thresh = 190;
     const int erosion_type = MORPH_RECT;
 
     Mat grayImage, binImage, erodeImage;
@@ -222,11 +231,11 @@ char ImageExtractor::getColor(Points obj)
     b /= count;
     g /= count;
     r /= count;
-    cout << b << " " << g << " "<< r << " ";
-    const int M = 1;
-    if(b>r+M && b>g+M && b > 240) return B;
-    if(g>b+M && g>r+M && g > 238) return G;
-    if(r>b+M && r>g+M && r > 240) return R;
+    cout << b << " " << g << " "<< r << " " << endl;
+    const int M = 20;
+    if((b>r+M && b>g+M) || (b>r && b>g && b > 230)) return B;
+    if((g>b+M && g>r+M) || (g>b && g>r && g > 222)) return G;
+    if((r>b+M && r>g+M) || (r>b && r>g && r > 230)) return R;
     return Y;
 }
 
@@ -267,6 +276,22 @@ double ImageExtractor::getOrientation(Points contour)
     //double rate = tan(dtheta);
     //cout << "The rate is "<<rate<<endl;
     //return rate;
+}
+
+bool ImageExtractor::isStand(Points contour, Point centroid)
+{
+    const int radius = 50;
+    int near = radius * radius, far = radius * radius;
+    for(int i=0;i<contour.size();i++)
+    {
+        int dx = contour[i].x - centroid.x;
+        int dy = contour[i].y - centroid.y;
+        int dist = dx * dx + dy * dy;
+        near = near > dist ? dist : near;
+        far = far < dist ? dist : far;
+    }
+    //cout << far << " " << near << " " << far - near << endl;
+    return far - near < 10000;
 }
 
 int ImageExtractor::connectedComponents(Mat &L, const Mat &I, int connectivity){

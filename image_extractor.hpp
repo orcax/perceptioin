@@ -58,6 +58,7 @@ class ImageExtractor
         Vec3b getBGR(int color);
         Point getCentroid(Points contour);
         double getOrientation(Points contour);
+        bool isStand(Points contour, Point centroid);
         int connectedComponents(Mat &L, const Mat &I, int connectivity);
 };
 
