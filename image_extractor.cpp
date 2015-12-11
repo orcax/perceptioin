@@ -237,10 +237,10 @@ char ImageExtractor::getColor(Points obj)
     g /= count;
     r /= count;
     cout << b << " " << g << " "<< r << " " << endl;
-    const int M = 20;
-    if((b>r+M && b>g+M) || (b>r && b>g && b > 230)) return B;
-    if((g>b+M && g>r+M) || (g>b && g>r && g > 222)) return G;
-    if((r>b+M && r>g+M) || (r>b && r>g && r > 230)) return R;
+    const int M = 15, N = 5;
+    if((b>r+M && b>g+M) || (b>r+N && b>g+N && b > 200)) return B;
+    if((g>b+M && g>r+M) || (g>b+N && g>r+N && g > 200)) return G;
+    if((r>b+M && r>g+M) || (r>b+N && r>g+N+1 && r > 200)) return R;
     return Y;
 }
 
@@ -311,8 +311,8 @@ bool ImageExtractor::isStand(Points contour, Point centroid)
         far += dists[dists.size() - 1 - i];
     }
     float ratio = far / near;
-    cout << var << " " << ratio<< endl;
-    return ratio < 3;
+    //cout << var << " " << ratio<< endl;
+    return ratio < 3 && var < 1e7;
 }
 
 int ImageExtractor::connectedComponents(Mat &L, const Mat &I, int connectivity){
