@@ -2,6 +2,7 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <iostream>
+#include <algorithm>
 #include <cstring>
 #include <stdio.h>
 #include "image_extractor.hpp"
@@ -15,15 +16,15 @@ using namespace std;
 
 ImageExtractor::ImageExtractor(Mat image)
 {
-    this->image = image;
-    this->output = Mat::zeros(image.size(), CV_8UC3); 
+    Size size = Size(640, 400);
+    resize(image, this->image, size);
+    this->output = Mat::zeros(this->image.size(), CV_8UC3); 
     //this->output = Mat(image.size(), CV_32S); 
     this->bgr = Scalar(255, 255, 255);
 }
 
-vector<ImageObject> ImageExtractor::extract()
+void ImageExtractor::extract(vector<ImageObject>& imageObjects)
 {
-    vector<ImageObject> imageObjects;
     this->binarize();
     vector<Points> contours = this->getContours();
     for(int i=0;i<contours.size();i++)
@@ -39,14 +40,13 @@ vector<ImageObject> ImageExtractor::extract()
         Points obj = this->fillObject(contours[i]);
         this->setOutputColor(io.color);
         this->plotPoints(obj);
-        if(!io.stand)
+        if(!io.stand) 
         {
-            this->setOutputColor('x');
+            this->setOutputColor('w');
             this->plotLine(io.orient, io.centroid);
         }
         //this->showImage(this->output, "ccc");
     }
-    return imageObjects;
 }
 
 void ImageExtractor::setOutputColor(uchar b, uchar g, uchar r)
@@ -108,7 +108,8 @@ void ImageExtractor::plotLine(double theta, Point start)
 
 void ImageExtractor::plotLine(double theta, Point start, Mat image)
 {
-    Point end = Point(start.x + 50 * cos(theta), start.y + 50 * sin(theta));
+    int len = 40;
+    Point end = Point(start.x + len * cos(theta), start.y + len * sin(theta));
     line(this->output, start, end, this->bgr, 3);
 }
 
@@ -136,18 +137,22 @@ void ImageExtractor::showImage(Mat image, string title)
 
 void ImageExtractor::binarize()
 {
-    const int thresh = 190;
-    const int erosion_type = MORPH_RECT;
+    const int thresh = 180;
+    const int erosion_type = MORPH_ELLIPSE;
 
-    Mat grayImage, binImage, erodeImage;
+    Mat grayImage, erodeImage;
 
     //TODO change erosion
     cvtColor(this->image, grayImage, CV_BGR2GRAY);
     //GaussianBlur(this->grayImage, this->grayImage, Size(9, 9), 2, 2);
     //Canny(this->grayImage, this->binImage, 0, 50, 5); 
-    threshold(grayImage, binImage, thresh, 255, 0);
-    Mat element = getStructuringElement(erosion_type, Size(15, 15));
-    morphologyEx(binImage, erodeImage, MORPH_OPEN, element);
+    threshold(grayImage, erodeImage, thresh, 255, 0);
+    Mat element = getStructuringElement(erosion_type, Size(10, 10));
+    //morphologyEx(binImage, erodeImage, MORPH_OPEN, element);
+    for(int i=0;i<3;i++) {
+        erode(erodeImage, erodeImage, element);
+        dilate(erodeImage, erodeImage, element);
+    }
 
     Mat labelImage(this->image.size(), CV_32S);
     int nLabels = this->connectedComponents(labelImage, erodeImage, 8);
@@ -280,18 +285,34 @@ double ImageExtractor::getOrientation(Points contour)
 
 bool ImageExtractor::isStand(Points contour, Point centroid)
 {
-    const int radius = 50;
-    int near = radius * radius, far = radius * radius;
+    vector<float> dists;
     for(int i=0;i<contour.size();i++)
     {
         int dx = contour[i].x - centroid.x;
         int dy = contour[i].y - centroid.y;
-        int dist = dx * dx + dy * dy;
-        near = near > dist ? dist : near;
-        far = far < dist ? dist : far;
+        dists.push_back(dx * dx + dy * dy);
     }
-    //cout << far << " " << near << " " << far - near << endl;
-    return far - near < 10000;
+    float mean = 0.0, var = 0.0;
+    for(int i=0;i<dists.size();i++) 
+    {
+        mean += dists[i];
+    }
+    mean /= dists.size();
+    for(int i=0;i<dists.size();i++)
+    {
+        int d = dists[i] - mean;
+        var += d * d;
+    }
+    sort(dists.begin(), dists.end());
+    float far = 0.0, near = 0.0;
+    for(int i=0;i<5;i++)
+    { 
+        near += dists[i];
+        far += dists[dists.size() - 1 - i];
+    }
+    float ratio = far / near;
+    cout << var << " " << ratio<< endl;
+    return ratio < 3;
 }
 
 int ImageExtractor::connectedComponents(Mat &L, const Mat &I, int connectivity){

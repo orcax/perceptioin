@@ -21,7 +21,8 @@ int main(int argc, char** argv)
 
     ImageExtractor ie(image);
     ie.showImage(ie.image, "aaa");
-    vector<ImageObject> imagedata = ie.extract();
+    vector<ImageObject> imagedata; 
+    ie.extract(imagedata);
     ie.showImage(ie.output, "ccc");
     /*
     Mat image_binary = ie.binarize(image);

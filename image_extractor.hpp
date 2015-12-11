@@ -35,7 +35,7 @@ class ImageExtractor
         Mat image, binImage, output;
 
         ImageExtractor(Mat image);
-        vector<ImageObject> extract();
+        void extract(vector<ImageObject>& imageObjects);
         void setOutputColor(uchar b, uchar g, uchar r);
         void setOutputColor(char color);
         void plotDot(Point pt);
