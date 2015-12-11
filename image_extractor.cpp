@@ -16,13 +16,36 @@ using namespace std;
 ImageExtractor::ImageExtractor(Mat image)
 {
     this->image = image;
-    this->output = Mat::zeros(image.size(), CV_8UC3); 
+    //this->output = Mat::zeros(image.size(), CV_8UC3); 
+    this->output = Mat(image.size(), CV_32S); 
     this->bgr = Scalar(255, 255, 255);
 }
 
 vector<ImageData> ImageExtractor::extract()
 {
+    cvtColor(this->image, this->grayImage, CV_BGR2GRAY);
+    //GaussianBlur(this->grayImage, this->grayImage, Size(9, 9), 2, 2);
+    Canny(this->grayImage, this->binImage, 0, 50, 5); 
+    threshold(this->grayImage, this->binImage, 200, 255, 0);
+    Mat labelImage(this->image.size(), CV_32S);
+    int nLabels = this->connectedComponents(labelImage, this->binImage, 8);
+    cout << nLabels << endl;
+    Vec3b colors[nLabels];
+    colors[0] = Vec3b(0, 0, 0);//background
+    for(int label = 1; label < nLabels; ++label){
+        colors[label] = Vec3b( (rand()&255), (rand()&255), (rand()&255) );
+    }
+    Mat dst(this->image.size(), CV_8UC3);
+    for(int r = 0; r < dst.rows; ++r){
+        for(int c = 0; c < dst.cols; ++c){
+            int label = labelImage.at<int>(r, c);
+            Vec3b &pixel = dst.at<Vec3b>(r, c);
+            pixel = colors[label];
+        }
+    }
+    this->showImage(dst, "ddd");
     vector<ImageData> imageData;
+    /*
     vector<Points> contours = this->getContours();
     for(int i=0;i<contours.size();i++)
     {
@@ -36,6 +59,7 @@ vector<ImageData> ImageExtractor::extract()
         //this->plotPoints(obj);
         //this->showImage(this->output, "ccc");
     }
+    */
     return imageData;
 }
 
@@ -121,11 +145,14 @@ void ImageExtractor::showImage(Mat image, string title)
 /************** Private Methods ***************/
 /**********************************************/
 
+void ImageExtractor::binarize()
+{}
+
 vector<Points> ImageExtractor::getContours()
 {
     cvtColor(this->image, this->grayImage, CV_BGR2GRAY);
     //GaussianBlur(this->grayImage, this->grayImage, Size(9, 9), 2, 2);
-    //Canny(this->grayImage, this->binImage, 0, 50, 5);
+    Canny(this->grayImage, this->binImage, 0, 50, 5);
     threshold(this->grayImage, this->binImage, 160, 255, 0);
     Mat dstImage;
     //vector<Vec3f> circles;
@@ -251,5 +278,118 @@ double ImageExtractor::getOrientation(Points contour)
     //double rate = tan(dtheta);
     //cout << "The rate is "<<rate<<endl;
     //return rate;
+}
+
+int ImageExtractor::connectedComponents(Mat &L, const Mat &I, int connectivity){
+    CV_Assert(L.rows == I.rows);
+    CV_Assert(L.cols == I.cols);
+    CV_Assert(L.channels() == 1 && I.channels() == 1);
+    CV_Assert(connectivity == 8 || connectivity == 4);
+
+    int lDepth = L.depth();
+    int iDepth = I.depth();
+    //using connectedcomponents::LabelingImpl;
+    //warn if L's depth is not sufficient?
+
+    if(lDepth == CV_8U){
+        if(iDepth == CV_8U || iDepth == CV_8S){
+            if(connectivity == 4){
+                return LabelingImpl<uint8_t, uint8_t, 4>()(L, I);
+            }else{
+                return LabelingImpl<uint8_t, uint8_t, 8>()(L, I);
+            }
+        }else if(iDepth == CV_16U || iDepth == CV_16S){
+            if(connectivity == 4){
+                return LabelingImpl<uint8_t, uint16_t, 4>()(L, I);
+            }else{
+                return LabelingImpl<uint8_t, uint16_t, 8>()(L, I);
+            }
+        }else if(iDepth == CV_32S){
+            if(connectivity == 4){
+                return LabelingImpl<uint8_t, int32_t, 4>()(L, I);
+            }else{
+                return LabelingImpl<uint8_t, int32_t, 8>()(L, I);
+            }
+        }else if(iDepth == CV_32F){
+            if(connectivity == 4){
+                return LabelingImpl<uint8_t, float, 4>()(L, I);
+            }else{
+                return LabelingImpl<uint8_t, float, 8>()(L, I);
+            }
+        }else if(iDepth == CV_64F){
+            if(connectivity == 4){
+                return LabelingImpl<uint8_t, double, 4>()(L, I);
+            }else{
+                return LabelingImpl<uint8_t, double, 8>()(L, I);
+            }
+        }
+    }else if(lDepth == CV_16U){
+        if(iDepth == CV_8U || iDepth == CV_8S){
+            if(connectivity == 4){
+                return LabelingImpl<uint16_t, uint8_t, 4>()(L, I);
+            }else{
+                return LabelingImpl<uint16_t, uint8_t, 8>()(L, I);
+            }
+        }else if(iDepth == CV_16U || iDepth == CV_16S){
+            if(connectivity == 4){
+                return LabelingImpl<uint16_t, uint16_t, 4>()(L, I);
+            }else{
+                return LabelingImpl<uint16_t, uint16_t, 8>()(L, I);
+            }
+        }else if(iDepth == CV_32S){
+            if(connectivity == 4){
+                return LabelingImpl<uint16_t, int32_t, 4>()(L, I);
+            }else{
+                return LabelingImpl<uint16_t, int32_t, 8>()(L, I);
+            }
+        }else if(iDepth == CV_32F){
+            if(connectivity == 4){
+                return LabelingImpl<uint16_t, float, 4>()(L, I);
+            }else{
+                return LabelingImpl<uint16_t, float, 8>()(L, I);
+            }
+        }else if(iDepth == CV_64F){
+            if(connectivity == 4){
+                return LabelingImpl<uint16_t, double, 4>()(L, I);
+            }else{
+                return LabelingImpl<uint16_t, double, 8>()(L, I);
+            }
+        }
+    }else if(lDepth == CV_32S){
+        if(iDepth == CV_8U || iDepth == CV_8S){
+            if(connectivity == 4){
+                return LabelingImpl<int32_t, uint8_t, 4>()(L, I);
+            }else{
+                return LabelingImpl<int32_t, uint8_t, 8>()(L, I);
+            }
+        }else if(iDepth == CV_16U || iDepth == CV_16S){
+            if(connectivity == 4){
+                return LabelingImpl<int32_t, uint16_t, 4>()(L, I);
+            }else{
+                return LabelingImpl<int32_t, uint16_t, 8>()(L, I);
+            }
+        }else if(iDepth == CV_32S){
+            if(connectivity == 4){
+                return LabelingImpl<int32_t, int32_t, 4>()(L, I);
+            }else{
+                return LabelingImpl<int32_t, int32_t, 8>()(L, I);
+            }
+        }else if(iDepth == CV_32F){
+            if(connectivity == 4){
+                return LabelingImpl<int32_t, float, 4>()(L, I);
+            }else{
+                return LabelingImpl<int32_t, float, 8>()(L, I);
+            }
+        }else if(iDepth == CV_64F){
+            if(connectivity == 4){
+                return LabelingImpl<int32_t, double, 4>()(L, I);
+            }else{
+                return LabelingImpl<int32_t, double, 8>()(L, I);
+            }
+        }
+    }
+
+    CV_Error(CV_StsUnsupportedFormat, "unsupported label/image type");
+    return -1;
 }
 
