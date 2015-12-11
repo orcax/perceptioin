@@ -20,10 +20,9 @@ int main(int argc, char** argv)
     }
 
     ImageExtractor ie(image);
-    vector<ImageData> imagedata = ie.extract();
-
-    //ie.showImage(ie.binImage, "aaa");
-    //ie.showImage(ie.output, "ccc");
+    ie.showImage(ie.image, "aaa");
+    vector<ImageObject> imagedata = ie.extract();
+    ie.showImage(ie.output, "ccc");
     /*
     Mat image_binary = ie.binarize(image);
     Mat output = Mat::zeros(image_binary.size(), CV_8UC3);

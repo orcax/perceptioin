@@ -16,51 +16,30 @@ using namespace std;
 ImageExtractor::ImageExtractor(Mat image)
 {
     this->image = image;
-    //this->output = Mat::zeros(image.size(), CV_8UC3); 
-    this->output = Mat(image.size(), CV_32S); 
+    this->output = Mat::zeros(image.size(), CV_8UC3); 
+    //this->output = Mat(image.size(), CV_32S); 
     this->bgr = Scalar(255, 255, 255);
 }
 
-vector<ImageData> ImageExtractor::extract()
+vector<ImageObject> ImageExtractor::extract()
 {
-    cvtColor(this->image, this->grayImage, CV_BGR2GRAY);
-    //GaussianBlur(this->grayImage, this->grayImage, Size(9, 9), 2, 2);
-    Canny(this->grayImage, this->binImage, 0, 50, 5); 
-    threshold(this->grayImage, this->binImage, 200, 255, 0);
-    Mat labelImage(this->image.size(), CV_32S);
-    int nLabels = this->connectedComponents(labelImage, this->binImage, 8);
-    cout << nLabels << endl;
-    Vec3b colors[nLabels];
-    colors[0] = Vec3b(0, 0, 0);//background
-    for(int label = 1; label < nLabels; ++label){
-        colors[label] = Vec3b( (rand()&255), (rand()&255), (rand()&255) );
-    }
-    Mat dst(this->image.size(), CV_8UC3);
-    for(int r = 0; r < dst.rows; ++r){
-        for(int c = 0; c < dst.cols; ++c){
-            int label = labelImage.at<int>(r, c);
-            Vec3b &pixel = dst.at<Vec3b>(r, c);
-            pixel = colors[label];
-        }
-    }
-    this->showImage(dst, "ddd");
-    vector<ImageData> imageData;
-    /*
+    vector<ImageObject> imageObjects;
+    this->binarize();
     vector<Points> contours = this->getContours();
     for(int i=0;i<contours.size();i++)
     {
-        ImageData id;
-        id.centroid = this->getCentroid(contours[i]);
-        id.orient = this->getOrientation(contours[i]);
-        id.color = this->getColor(contours[i]);
+        ImageObject io;
+        io.centroid = this->getCentroid(contours[i]);
+        io.orient = this->getOrientation(contours[i]);
+        io.color = this->getColor(contours[i]);
 
-        imageData.push_back(id);
-        //cout << obj.size() << endl;
-        //this->plotPoints(obj);
+        imageObjects.push_back(io);
+        this->setOutputColor(io.color);
+        Points obj = this->fillObject(contours[i]);
+        this->plotPoints(obj);
         //this->showImage(this->output, "ccc");
     }
-    */
-    return imageData;
+    return imageObjects;
 }
 
 void ImageExtractor::setOutputColor(uchar b, uchar g, uchar r)
@@ -102,6 +81,7 @@ void ImageExtractor::plotDot(Point pt, Mat image)
 void ImageExtractor::plotPoints(Points pts)
 {
     this->plotPoints(pts, this->output);
+    cout << pts.size() << endl;
 }
 
 void ImageExtractor::plotPoints(Points pts, Mat image)
@@ -146,47 +126,56 @@ void ImageExtractor::showImage(Mat image, string title)
 /**********************************************/
 
 void ImageExtractor::binarize()
-{}
+{
+    const int thresh = 210;
+    const int erosion_type = MORPH_RECT;
+
+    Mat grayImage, binImage, erodeImage;
+
+    //TODO change erosion
+    cvtColor(this->image, grayImage, CV_BGR2GRAY);
+    //GaussianBlur(this->grayImage, this->grayImage, Size(9, 9), 2, 2);
+    //Canny(this->grayImage, this->binImage, 0, 50, 5); 
+    threshold(grayImage, binImage, thresh, 255, 0);
+    Mat element = getStructuringElement(erosion_type, Size(15, 15));
+    morphologyEx(binImage, erodeImage, MORPH_OPEN, element);
+
+    Mat labelImage(this->image.size(), CV_32S);
+    int nLabels = this->connectedComponents(labelImage, erodeImage, 8);
+    /*
+    Vec3b colors[nLabels];
+    colors[0] = Vec3b(0, 0, 0);//background
+    for(int label = 1; label < nLabels; ++label){
+        colors[label] = Vec3b( (rand()&255), (rand()&255), (rand()&255) );
+    }
+    */
+    Mat dstImage(this->image.size(), CV_8UC3);
+    for(int r = 0; r < this->image.rows; ++r){
+        for(int c = 0; c < this->image.cols; ++c){
+            int label = labelImage.at<int>(r, c);
+            Vec3b &pixel = dstImage.at<Vec3b>(r, c);
+            //pixel = colors[label];
+            if(label == 0) pixel = Vec3b(0, 0, 0);
+            else pixel = Vec3b(255, 255, 255);
+        }
+    }
+    cvtColor(dstImage, this->binImage, CV_BGR2GRAY);
+}
 
 vector<Points> ImageExtractor::getContours()
 {
-    cvtColor(this->image, this->grayImage, CV_BGR2GRAY);
-    //GaussianBlur(this->grayImage, this->grayImage, Size(9, 9), 2, 2);
-    Canny(this->grayImage, this->binImage, 0, 50, 5);
-    threshold(this->grayImage, this->binImage, 160, 255, 0);
-    Mat dstImage;
-    //vector<Vec3f> circles;
-    //HoughCircles(this->grayImage, circles, CV_HOUGH_GRADIENT, 1, 10, 200, 100, 0, 0);
-    //cout << circles.size() << endl;
-    //for(int i=0;i<circles.size();i++)
-    //{
-    //    Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
-    //    int radius = cvRound(circles[i][2]);
-    //    circle(output, center, radius, Scalar(255,255,255), 3, 8, 0);
-    //}
-
     vector<Points> contours, result;
     vector<Vec4i> hierarchy;
-    Mat element = getStructuringElement(MORPH_ELLIPSE, Size(15, 15));
-    morphologyEx(this->binImage, dstImage, MORPH_GRADIENT, element);
-    findContours(dstImage, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, Point(0,0));
-    //findContours(this->binImage, contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE);
-    Points approx;
-    this->setOutputColor(R);
+    Mat tmpImage;
+    //Mat element = getStructuringElement(MORPH_ELLIPSE, Size(15, 15));
+    //morphologyEx(this->binImage, tmpImage, MORPH_GRADIENT, element);
+    findContours(this->binImage, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, Point(0,0));
     for(int i=0;i<contours.size();i++)
     {
         Points obj = fillObject(contours[i]);
-        if(obj.size() < 1000 || obj.size() > 20000) continue;
-        //approxPolyDP(Mat(contours[i]), approx, arcLength(Mat(contours[i]), true) * 0.02, true);
-        //for(int j=0;j<approx.size();j++)
-        //{
-        //    this->plotDot(approx[j]);
-        //    cout << approx[j];
-        //}
-        //cout << endl << "-----contour " << approx.size() << endl;
+        if(obj.size() < 100) continue;
         result.push_back(contours[i]);
     }
-    this->setOutputColor(W);
     return result;
 }
 
@@ -233,11 +222,11 @@ char ImageExtractor::getColor(Points obj)
     b /= count;
     g /= count;
     r /= count;
-    //cout << b << " " << g << " "<< r << " ";
-    const int M = 5;
-    if(b>r+M && b>g+M && b > 200) return B;
-    if(g>b+M && g>r+M && g > 200) return G;
-    if(r>b+M && r>g+M && r > 198) return R;
+    cout << b << " " << g << " "<< r << " ";
+    const int M = 1;
+    if(b>r+M && b>g+M && b > 240) return B;
+    if(g>b+M && g>r+M && g > 238) return G;
+    if(r>b+M && r>g+M && r > 240) return R;
     return Y;
 }
 

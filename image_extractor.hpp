@@ -18,24 +18,24 @@ const char B = 'b';
 const char Y = 'y';
 const char W = 'w';
 
-typedef struct image_data_
+typedef struct image_object_
 {
     bool stand;
     char color;
     double orient;
     Point centroid;
     Point2d loc;
-} ImageData;
+} ImageObject;
 
 typedef vector<Point> Points;
 
 class ImageExtractor
 {
     public:
-        Mat image, grayImage, binImage, output;
+        Mat image, binImage, output;
 
         ImageExtractor(Mat image);
-        vector<ImageData> extract();
+        vector<ImageObject> extract();
         void setOutputColor(uchar b, uchar g, uchar r);
         void setOutputColor(char color);
         void plotDot(Point pt);
@@ -58,7 +58,6 @@ class ImageExtractor
         Vec3b getBGR(int color);
         Point getCentroid(Points contour);
         double getOrientation(Points contour);
-
         int connectedComponents(Mat &L, const Mat &I, int connectivity);
 };
 
