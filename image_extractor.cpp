@@ -284,7 +284,7 @@ void ImageExtractor::getColors(vector<Points> objs, char* colors)
     }
     int nr = 0, ng = 0, nb = 0, ny = 0;
     int bval = 10, rval = 10, gval = 5, yval = 5;
-    while((nr < 2 || nb < 2)  && bval >= 0 && rval >=0)
+    while((nr < 2 || nb < 2)  && bval >= 5 && rval >=5)
     {
         for(int i=0;i<bgr.size();i++)
         {
