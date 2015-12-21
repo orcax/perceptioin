@@ -1,6 +1,8 @@
 CMakeFiles/
 data/
 result/
+frame/ 
+mydata/
 
 CMakeCache.txt
 Makefile

@@ -4,6 +4,7 @@
 #include <iostream>
 #include <algorithm>
 #include <cstring>
+#include <math.h>
 #include <stdio.h>
 #include "image_extractor.hpp"
 
@@ -16,23 +17,24 @@ using namespace std;
 
 ImageExtractor::ImageExtractor(Mat image)
 {
-    Size size = Size(640, 400);
-    resize(image, this->image, size);
-    this->output = Mat::zeros(this->image.size(), CV_8UC3); 
-    //this->output = Mat(image.size(), CV_32S); 
+    resize(image, this->image, Size(WIDTH, HEIGHT));
+    //this->output = Mat::zeros(this->image.size(), CV_8UC3); 
+    this->output = this->image.clone();
     this->bgr = Scalar(255, 255, 255);
 }
 
 void ImageExtractor::extract(vector<ImageObject>& imageObjects)
 {
-    this->binarize();
+    this->preprocess();
     vector<Points> contours = this->getContours();
+    char colors[9];
+    this->getColors(contours, colors);
     for(int i=0;i<contours.size();i++)
     {
         ImageObject io;
         io.centroid = this->getCentroid(contours[i]);
         io.orient = this->getOrientation(contours[i]);
-        io.color = this->getColor(contours[i]);
+        io.color = colors[i];
         io.stand = this->isStand(contours[i], io.centroid);
         if(io.stand) io.orient = 0.0;
         imageObjects.push_back(io);
@@ -45,7 +47,7 @@ void ImageExtractor::extract(vector<ImageObject>& imageObjects)
             this->setOutputColor('w');
             this->plotLine(io.orient, io.centroid);
         }
-        //this->showImage(this->output, "ccc");
+        this->showImage(this->output, "ccc");
     }
 }
 
@@ -135,18 +137,39 @@ void ImageExtractor::showImage(Mat image, string title)
 /************** Private Methods ***************/
 /**********************************************/
 
-void ImageExtractor::binarize()
+void ImageExtractor::preprocess()
 {
-    const int thresh = 180;
+    const int thresh1 = 180;
+    Mat image2 = this->image.clone();
+    /*
+    for(int i=0;i<HEIGHT;i++)
+    {
+        for(int j=0;j<WIDTH;j++)
+        {
+            Vec3b* color = &image2.at<Vec3b>(i,j);
+            int b = (*color)[0];
+            int g = (*color)[1];
+            int r = (*color)[2];
+            (*color)[0] = b > thresh1 ? 255 : 0;
+            (*color)[1] = g > thresh1 ? 255 : 0;
+            (*color)[2] = r > thresh1 ? 255 : 0;
+            //if(b > g && b > r && b > thresh1) (*color)[0] = 255;
+            //else if(g > b && g > r && g > thresh1) (*color)[0] = 255;
+            //else if(r > b && r > g && r > thresh1) (*color)[0] = 255;
+        }
+    }
+    */
+
+    const int thresh2 = 170;
     const int erosion_type = MORPH_ELLIPSE;
 
     Mat grayImage, erodeImage;
 
     //TODO change erosion
-    cvtColor(this->image, grayImage, CV_BGR2GRAY);
+    cvtColor(image2, grayImage, CV_BGR2GRAY);
     //GaussianBlur(this->grayImage, this->grayImage, Size(9, 9), 2, 2);
     //Canny(this->grayImage, this->binImage, 0, 50, 5); 
-    threshold(grayImage, erodeImage, thresh, 255, 0);
+    threshold(grayImage, erodeImage, thresh2, 255, 0);
     Mat element = getStructuringElement(erosion_type, Size(10, 10));
     //morphologyEx(binImage, erodeImage, MORPH_OPEN, element);
     for(int i=0;i<3;i++) {
@@ -215,7 +238,7 @@ Points ImageExtractor::fillObject(Points contour)
     return obj;
 }
 
-char ImageExtractor::getColor(Points obj)
+Vec3b ImageExtractor::getColor(Points obj)
 {
     Vec3b bgr = this->image.at<Vec3b>(obj[0].y, obj[0].x);
     long b = (long)bgr[0], g = (long)bgr[1], r = (long)bgr[2];
@@ -237,11 +260,42 @@ char ImageExtractor::getColor(Points obj)
     g /= count;
     r /= count;
     cout << b << " " << g << " "<< r << " " << endl;
+    /*
     const int M = 15, N = 5;
-    if((b>r+M && b>g+M) || (b>r+N && b>g+N && b > 200)) return B;
+    if(b>r+20 && b>g+20) return B;
+    if(r>b+10 && r>g+10) return R;
     if((g>b+M && g>r+M) || (g>b+N && g>r+N && g > 200)) return G;
-    if((r>b+M && r>g+M) || (r>b+N && r>g+N+1 && r > 200)) return R;
     return Y;
+    */
+    Vec3b result;
+    result[0] = (char)b;
+    result[1] = (char)g;
+    result[2] = (char)r;
+    return result;
+}
+
+void ImageExtractor::getColors(vector<Points> objs, char* colors)
+{
+    memset(colors, 0, sizeof(char)*objs.size());
+    vector<Vec3b> bgr;
+    for(int i=0;i<objs.size();i++)
+    {
+        bgr.push_back(this->getColor(objs[i]));
+    }
+    int nr = 0, ng = 0, nb = 0, ny = 0;
+    for(int i=0;i<bgr.size();i++)
+    {
+        long b = (long)(bgr[i][0]);
+        long g = (long)(bgr[i][1]);
+        long r = (long)(bgr[i][2]);
+        if(b>g+10 && b > r+10) colors[i] = B;
+        else if(r>b+10 && r>g+10) colors[i] = R;
+        else {
+            if(b>r && g>r) colors[i] = G;
+            else if(g>b && r>b) colors[i] = Y;
+            else colors[i] = Y;
+        }
+    }
 }
 
 Vec3b ImageExtractor::getBGR(int color)

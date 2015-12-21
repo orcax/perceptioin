@@ -18,6 +18,9 @@ const char B = 'b';
 const char Y = 'y';
 const char W = 'w';
 
+const int WIDTH = 640;
+const int HEIGHT = 400;
+
 typedef struct image_object_
 {
     bool stand;
@@ -51,10 +54,11 @@ class ImageExtractor
     private:
         Scalar bgr;
 
-        void binarize();
+        void preprocess();
         vector<Points> getContours();
         Points fillObject(Points contour);
-        char getColor(Points obj);
+        Vec3b getColor(Points obj);
+        void getColors(vector<Points> objs, char* colors);
         Vec3b getBGR(int color);
         Point getCentroid(Points contour);
         double getOrientation(Points contour);
