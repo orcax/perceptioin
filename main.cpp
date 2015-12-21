@@ -22,7 +22,7 @@ int main(int argc, char** argv)
     ImageExtractor ie(image);
     vector<ImageObject> imagedata; 
     ie.extract(imagedata);
-    ie.showImage(ie.image, "aaa");
+    //ie.showImage(ie.image, "aaa");
     ie.showImage(ie.output, "ccc");
     //imwrite("./test.png", ie.image);
 

@@ -47,7 +47,7 @@ void ImageExtractor::extract(vector<ImageObject>& imageObjects)
             this->setOutputColor('w');
             this->plotLine(io.orient, io.centroid);
         }
-        this->showImage(this->output, "ccc");
+        //this->showImage(this->output, "ccc");
     }
 }
 
@@ -283,18 +283,55 @@ void ImageExtractor::getColors(vector<Points> objs, char* colors)
         bgr.push_back(this->getColor(objs[i]));
     }
     int nr = 0, ng = 0, nb = 0, ny = 0;
+    int bval = 10, rval = 10, gval = 5, yval = 5;
+    while((nr < 2 || nb < 2)  && bval >= 0 && rval >=0)
+    {
+        for(int i=0;i<bgr.size();i++)
+        {
+            if(colors[i] > 0) continue;
+            long b = (long)(bgr[i][0]);
+            long g = (long)(bgr[i][1]);
+            long r = (long)(bgr[i][2]);
+            if(b>g+bval && b > r+bval) 
+            {
+                colors[i] = B;
+                nb++;
+            }
+            else if(r>b+rval && r>g+rval) 
+            {
+                colors[i] = R;
+                nr++;
+            }
+        }
+        bval--;
+        rval--;
+    }
+    while(ng != 2 && gval >=0)
+    {
+        ng = 0;
+        for(int i=0;i<bgr.size();i++)
+        {
+            if(colors[i] > 0) continue;
+            long b = (long)(bgr[i][0]);
+            long g = (long)(bgr[i][1]);
+            long r = (long)(bgr[i][2]);
+            if(b>r+gval && g>r+gval) ng++;
+        }
+        gval--;
+    }
+    gval++;
     for(int i=0;i<bgr.size();i++)
     {
+        if(colors[i] > 0) continue;
         long b = (long)(bgr[i][0]);
         long g = (long)(bgr[i][1]);
         long r = (long)(bgr[i][2]);
-        if(b>g+10 && b > r+10) colors[i] = B;
-        else if(r>b+10 && r>g+10) colors[i] = R;
-        else {
-            if(b>r && g>r) colors[i] = G;
-            else if(g>b && r>b) colors[i] = Y;
-            else colors[i] = Y;
-        }
+        if(b>r+gval && g>r+gval) colors[i] = G;
+    }
+
+    for(int i=0;i<bgr.size();i++)
+    {
+        if(colors[i] == 0) colors[i] = Y;
     }
 }
 
